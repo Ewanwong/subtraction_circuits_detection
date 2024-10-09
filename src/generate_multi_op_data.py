@@ -44,8 +44,7 @@ def generate_data(max_samples, operator, ip_range, max_op_per_eq):
 
     while len(raw_eqs) < max_samples:
         multi_op_eq = MultiOpEquation(num_operator=max_op_per_eq)
-        eq = multi_op_eq.generate_equation(operator, ip_range, int_only=True if operator != '/' else False,
-                                           ans_wrap='answer{num}')
+        eq = multi_op_eq.generate_equation(operator, ip_range, int_only=True if operator != '/' else False)
         if eq not in raw_eqs:
             raw_eqs.append(eq)
             tq.update(1)
@@ -58,10 +57,10 @@ def generate_data(max_samples, operator, ip_range, max_op_per_eq):
     return raw_eqs
 
 
-def generate_all_op_data(tokenizer_path, n_ops, max_samples):
+def generate_all_op_data(tokenizer_path, n_ops, max_samples, op_filter=None):
     # all_data = {op: {"oov": [], "inv": []} for op in Equation.operators}
-    data_oov = {op: [] for op in Equation.operators}
-    data_inv = {op: [] for op in Equation.operators}
+    data_oov = {op: [] for op in Equation.operators if op in op_filter}
+    data_inv = {op: [] for op in Equation.operators if op in op_filter}
     max_pos_samples, inv_ip_range, oov_ip_range = get_max_samples_and_ranges(tokenizer_path, n_ops, max_samples)
     for curr_op, op_data in data_inv.items():
         #model,prompt,response,solution,size_shot,size_eq,prompt_operator_shot,prompt_operator_eq,oov,response_type,response_num
@@ -74,6 +73,13 @@ def generate_prompt(query, ctx, p_template):
     query, answer = query.split("=")
     answer_num = answer.split("{")[-1].split("}")[0]
     prompt = p_template.text({"examples": ctx, "query": query.strip()})
+    return prompt, query.strip(), format(float(answer_num), '.3f') if "." in answer_num else int(answer_num)
+
+
+def generate_zero_shot_prompt(query, p_template):
+    query, answer = query.split(".")
+    answer_num = answer.strip()
+    prompt = p_template.text({"query": query.strip()})
     return prompt, query.strip(), format(float(answer_num), '.3f') if "." in answer_num else int(answer_num)
 
 
@@ -110,8 +116,25 @@ def create_n_shot_data(data, p_template, nshot, q_context_op_map, max_q_size, sa
                 raise NotImplementedError("Returning just the data is not implemented yet.")
 
 
+def create_zero_shot_data(data, p_template, q_context_op_map, max_q_size, save_dir=None, save_prefix=None):
+    for q_op, q_op_data in data.items():
+        if q_op in ["/", "div", "div_w"]:
+            continue
+        random.shuffle(q_op_data)
+        for ctx_op in q_context_op_map[q_op]:
+            q_data = q_op_data[:max_q_size]
+            if save_dir:
+                filename = f"{save_prefix}_q_{Equation.op_dict[q_op]}_ctx_{Equation.op_dict[ctx_op]}_0shot.jsonl"
+                save_jsonl(q_data, save_dir, filename)
+            else:
+                raise NotImplementedError("Returning just the data is not implemented yet.")
+
+# def get_query_context_pairs():
+#     return {op: Equation.operators for op in Equation.operators}
+
+
 def get_query_context_pairs():
-    return {op: Equation.operators for op in Equation.operators}
+    return {"+": ["+"]}
 
 
 if __name__ == "__main__":
@@ -130,14 +153,14 @@ if __name__ == "__main__":
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     #model,prompt,response,solution,size_shot,size_eq,prompt_operator_shot,prompt_operator_eq,oov,response_type,response_num
-    all_data_inv, all_data_oov = generate_all_op_data(args.tokenizer_path, args.num_operators, args.max_op_samples)
+    all_data_inv, all_data_oov = generate_all_op_data(args.tokenizer_path, args.num_operators, args.max_op_samples, op_filter=["+"])
     # log.info all data lens per op in a for loop
     for op in all_data_inv:
         log.info(f"Operator: {op}, In-vocab data: {len(all_data_inv[op])}, OOV data: {len(all_data_oov[op])}")
-    merged_all_data = {op: all_data_inv[op]+all_data_inv[op] for op in Equation.operators}
-    query_context_ops = get_query_context_pairs()
-
-    create_n_shot_data(all_data_oov, p, args.n_shot, query_context_ops, args.max_op_samples, args.output_dir,
-                       f"oov_{args.num_operators}op")
-    create_n_shot_data(all_data_inv, p, args.n_shot, query_context_ops, args.max_op_samples, args.output_dir,
-                       f"inv_{args.num_operators}op")
+    # merged_all_data = {op: all_data_inv[op]+all_data_inv[op] for op in Equation.operators if op in ["+"]}
+    # query_context_ops = get_query_context_pairs()
+    #
+    # create_n_shot_data(all_data_oov, p, args.n_shot, query_context_ops, args.max_op_samples, args.output_dir,
+    #                    f"oov_{args.num_operators}op")
+    # create_n_shot_data(all_data_inv, p, args.n_shot, query_context_ops, args.max_op_samples, args.output_dir,
+    #                    f"inv_{args.num_operators}op")

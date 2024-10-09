@@ -50,7 +50,7 @@ class MultiOpEquation(Equation):
         num_operand = num_operator + 1
         super().__init__(num_operand, num_operator)
 
-    def generate_equation(self, operator, input_range: Dict, int_only=False, ans_wrap='num') -> str:
+    def generate_equation(self, operator, input_range: Dict, int_only=False, ans_wrap=None) -> str:
         assert operator in self.operators, f"Operator must be one of {self.operators}"
         operands = [random.randint(input_range['start'], input_range['end']) for _ in range(self.num_operand)]
         operators = [operator for _ in range(self.num_operator)]
@@ -58,7 +58,10 @@ class MultiOpEquation(Equation):
         lhs = " ".join([str(operands[i]) + " " + operators[i] for i in range(self.num_operator)]) + " " + str(operands[-1])
         rhs = self.get_equation_answer(lhs, operator)
         ans = str(int(rhs) if int_only else f"{rhs}")
-        eq = lhs + " = " + ans_wrap.replace("num", ans)
+        if ans_wrap:
+            eq = lhs + " = " + ans_wrap.replace("num", ans)
+        else:
+            eq = lhs + ans
         return eq
 
 

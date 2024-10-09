@@ -2,13 +2,14 @@ import argparse
 import os
 import jsonlines
 
-import sglang as sgl
+# import sglang as sgl
+import openai
 
 from glob import glob
 from more_itertools import chunked
 from tqdm.auto import tqdm
 
-from utils.inference import get_default_prompting_params, math_complete
+from utils.inference import openai_complete
 
 
 def read_jsonl(file):
@@ -49,25 +50,63 @@ def _compile_jsonl_results(results, prompts, gold_answers, meta_info):
     return jsonl_results, corr_cnt
 
 
-def infer_and_save_to_jsonl(input_data, out_file):
-    prompts = [{"prompt": data["prompt"]} for data in input_data]
-    gold_answers = [data["answer"] for data in input_data]
-    chunked_prompts = list(chunked(prompts, args.batch_size))
-    results = []
-    meta_info = {"num_completion_tokens": [], "output_token_logprobs": [], "input_token_logprobs": []}
-    for cp in tqdm(chunked_prompts):
-        res = math_complete.run_batch(cp)
-        results.extend(res)
-        for r in res:
-            result_meta = r.get_meta_info("answer")
-            meta_info["num_completion_tokens"].append(result_meta["completion_tokens"])
-            meta_info["output_token_logprobs"].append(result_meta["output_token_logprobs"])
-            meta_info["input_token_logprobs"].append(result_meta["input_token_logprobs"])
+# def infer_and_save_to_jsonl(input_data, out_file):
+#     prompts = [{"prompt": data["prompt"]} for data in input_data]
+#     gold_answers = [data["answer"] for data in input_data]
+#     chunked_prompts = list(chunked(prompts, args.batch_size))
+#     results = []
+#     meta_info = {"num_completion_tokens": [], "output_token_logprobs": [], "input_token_logprobs": []}
+#     for cp in tqdm(chunked_prompts):
+#         res = math_complete.run_batch(cp)
+#         results.extend(res)
+#         for r in res:
+#             result_meta = r.get_meta_info("answer")
+#             meta_info["num_completion_tokens"].append(result_meta["completion_tokens"])
+#             meta_info["output_token_logprobs"].append(result_meta["output_token_logprobs"])
+#             meta_info["input_token_logprobs"].append(result_meta["input_token_logprobs"])
+#
+#     jsonl_res, corr_cnt = _compile_jsonl_results(results, prompts, gold_answers, meta_info)
+#     with jsonlines.open(out_file, "w") as writer:
+#         writer.write_all(jsonl_res)
+#     return corr_cnt
 
-    jsonl_res, corr_cnt = _compile_jsonl_results(results, prompts, gold_answers, meta_info)
+
+def openai_infer_and_save_to_jsonl(client, input_data, out_file):
+    prompts = [data["prompt"] for data in input_data]
+    gold_answers = [data["answer"] for data in input_data]
+    results = []
+    for p in tqdm(prompts):
+        res = openai_complete(p, client)
+        results.extend(res.choices[0].text)
+
+    jsonl_res, corr_cnt = _compile_jsonl_results_openai(results, prompts, gold_answers)
     with jsonlines.open(out_file, "w") as writer:
         writer.write_all(jsonl_res)
     return corr_cnt
+
+
+def _compile_jsonl_results_openai(results, prompts, gold_answers):
+    jsonl_results = []
+    corr_cnt = 0
+    for p, ans, res in zip(prompts, gold_answers, results):
+        gen_ans, is_correct = get_and_check_answer_openai(res, p, ans)
+        corr_cnt += 1 if is_correct else 0
+        jsonl_results.append({"query_prompt": p,
+                              "gold_answer": ans,
+                              "generated_ans": gen_ans,
+                              "is_correct": is_correct})
+    return jsonl_results, corr_cnt
+
+
+def get_and_check_answer_openai(result, prompt, answer):
+    gen_answer = result
+    gen_answer = gen_answer.replace(prompt, "").split("}")[0].strip()
+    gen_answer = gen_answer.replace(",", "")
+    try:
+        gen_answer = float(gen_answer) if "." in str(answer) else int(float(gen_answer))
+    except ValueError:
+        pass
+    return gen_answer, gen_answer == answer
 
 
 if __name__ == "__main__":
@@ -82,19 +121,20 @@ if __name__ == "__main__":
     args = ap.parse_args()
 
     total_files = glob(f"{args.data_dir}*/{args.filter_prefix if args.filter_prefix else ''}*.jsonl", recursive=True)
-    total_files = [file for file in total_files if args.model in file]
+    # total_files = [file for file in total_files if args.model in file]
     print(total_files)
 
-    prompting_params = get_default_prompting_params()
-    sgl.set_default_backend(sgl.RuntimeEndpoint(f"http://localhost:{args.port}", api_key=f"{args.api_key}"))
+    client = openai.Client(base_url=f"http://localhost:{args.port}/v1", api_key=f"{args.api_key}")
+    # prompting_params = get_default_prompting_params()
+    # sgl.set_default_backend(sgl.RuntimeEndpoint(f"http://localhost:{args.port}", api_key=f"{args.api_key}"))
+
     os.makedirs(os.path.join(args.output_dir, args.model), exist_ok=True)
 
     for file in tqdm(total_files):
         print(f"Processing file: {file}")
         input_data = read_jsonl(file)
         out_file = os.path.join(args.output_dir, args.model, f"{os.path.basename(file).split('.')[0]}_results.jsonl")
-        correct_cnt = infer_and_save_to_jsonl(input_data, out_file)
+        correct_cnt = openai_infer_and_save_to_jsonl(client, input_data, out_file)
         accuracy = correct_cnt / len(input_data)
         print(f"Accuracy: {accuracy}")
         print(f"Results saved to: {out_file}")
-

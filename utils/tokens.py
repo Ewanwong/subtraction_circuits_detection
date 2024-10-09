@@ -24,7 +24,7 @@ def get_ip_range_from_tokenizer(tokenizer_path: str, oov: bool, oov_range: int =
     # print(f"Consecutive groups: {consecutive}")
     start, end = (consecutive[0][0], consecutive[0][-1]) if not oov else (int(consecutive[0][-1]+1),
                                                                           int(consecutive[0][-1])*oov_range)
-    return {'start': start, 'end': end}
+    return {'start': start, 'end': end//2}
 
 
 if __name__ == "__main__":
