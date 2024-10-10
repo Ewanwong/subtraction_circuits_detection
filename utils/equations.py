@@ -61,7 +61,7 @@ class MultiOpEquation(Equation):
         if ans_wrap:
             eq = lhs + " = " + ans_wrap.replace("num", ans)
         else:
-            eq = lhs + ans
+            eq = lhs + "=" + ans
         return eq
 
 

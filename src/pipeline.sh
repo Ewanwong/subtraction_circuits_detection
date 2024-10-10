@@ -1,8 +1,8 @@
 #python exploration/std_op/generate_multi_op_data.py --num_operators 1 --max_op_samples 2000 --n_shot 5 --tokenizer_path "tokenizer_data/llama-3.1-8b-tokenizer.json" --output_dir "data/llama-3.1-8b-all" --prompt_template_path "exploration/std_op/multi_op.jinja"
 #python exploration/std_op/generate_multi_op_data.py --num_operators 1 --max_op_samples 2000 --n_shot 5 --tokenizer_path "tokenizer_data/qwen2-math-7b-tokenizer.json" --output_dir "data/qwen2-math-7b-all" --prompt_template_path "exploration/std_op/multi_op.jinja"
-python src/generate_multi_op_data.py --num_operators 1 --max_op_samples 20000 --n_shot 0 --tokenizer_path "tokenizer_data/gpt2-medium-tokenizer.json" --output_dir "data/gpt2-medium-all" --prompt_template_path "src/multi_op.jinja"
-python src/generate_multi_op_data.py --num_operators 1 --max_op_samples 20000 --n_shot 0 --tokenizer_path "tokenizer_data/pythia-1.4b-deduped-tokenizer.json" --output_dir "data/pythia-1.4b-all" --prompt_template_path "src/multi_op.jinja"
-python src/generate_multi_op_data.py --num_operators 1 --max_op_samples 20000 --n_shot 0 --tokenizer_path "tokenizer_data/pythia-410m-deduped-tokenizer.json" --output_dir "data/pythia-410m-all" --prompt_template_path "src/multi_op.jinja"
+python src/generate_multi_op_data.py --num_operators 1 --max_op_samples 30000 --n_shot 0 --tokenizer_path "tokenizer_data/gpt2-medium-tokenizer.json" --output_dir "data/gpt2-medium-all" --prompt_template_path "src/zero_shot_1.jinja"
+python src/generate_multi_op_data.py --num_operators 1 --max_op_samples 30000 --n_shot 0 --tokenizer_path "tokenizer_data/pythia-1.4b-deduped-tokenizer.json" --output_dir "data/pythia-1.4b-all" --prompt_template_path "src/zero_shot_1.jinja"
+python src/generate_multi_op_data.py --num_operators 1 --max_op_samples 30000 --n_shot 0 --tokenizer_path "tokenizer_data/pythia-410m-deduped-tokenizer.json" --output_dir "data/pythia-410m-all" --prompt_template_path "src/zero_shot_1.jinja"
 
 
 #python exploration/std_op/generate_multi_op_data.py --num_operators 1 --max_op_samples 2000 --n_shot 2 --tokenizer_path "tokenizer_data/llama-3.1-8b-tokenizer.json" --output_dir "data_2shot/llama-3.1-8b-all" --prompt_template_path "exploration/std_op/multi_op.jinja"

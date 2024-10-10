@@ -77,7 +77,7 @@ def generate_prompt(query, ctx, p_template):
 
 
 def generate_zero_shot_prompt(query, p_template):
-    query, answer = query.split(".")
+    query, answer = query.split("=")
     answer_num = answer.strip()
     prompt = p_template.text({"query": query.strip()})
     return prompt, query.strip(), format(float(answer_num), '.3f') if "." in answer_num else int(answer_num)
@@ -116,18 +116,20 @@ def create_n_shot_data(data, p_template, nshot, q_context_op_map, max_q_size, sa
                 raise NotImplementedError("Returning just the data is not implemented yet.")
 
 
-def create_zero_shot_data(data, p_template, q_context_op_map, max_q_size, save_dir=None, save_prefix=None):
-    for q_op, q_op_data in data.items():
-        if q_op in ["/", "div", "div_w"]:
+def create_zero_shot_data(data, p_template, save_dir=None, save_prefix=None):
+    for op, op_data in data.items():
+        if op in ["/", "div", "div_w"]:
             continue
-        random.shuffle(q_op_data)
-        for ctx_op in q_context_op_map[q_op]:
-            q_data = q_op_data[:max_q_size]
-            if save_dir:
-                filename = f"{save_prefix}_q_{Equation.op_dict[q_op]}_ctx_{Equation.op_dict[ctx_op]}_0shot.jsonl"
-                save_jsonl(q_data, save_dir, filename)
-            else:
-                raise NotImplementedError("Returning just the data is not implemented yet.")
+        random.shuffle(op_data)
+        generated_data = []
+        for _, eq in enumerate(op_data):
+            prompt, query, answer = generate_zero_shot_prompt(eq, p_template)
+            generated_data.append({"prompt": prompt, "answer": answer})
+        if save_dir:
+            filename = f"{save_prefix}_q_{Equation.op_dict[op]}_zero_shot.jsonl"
+            save_jsonl(generated_data, save_dir, filename)
+        else:
+            raise NotImplementedError("Returning just the data is not implemented yet.")
 
 # def get_query_context_pairs():
 #     return {op: Equation.operators for op in Equation.operators}
@@ -157,6 +159,7 @@ if __name__ == "__main__":
     # log.info all data lens per op in a for loop
     for op in all_data_inv:
         log.info(f"Operator: {op}, In-vocab data: {len(all_data_inv[op])}, OOV data: {len(all_data_oov[op])}")
+    create_zero_shot_data(all_data_inv, p, args.output_dir, f"inv_{args.num_operators}op")
     # merged_all_data = {op: all_data_inv[op]+all_data_inv[op] for op in Equation.operators if op in ["+"]}
     # query_context_ops = get_query_context_pairs()
     #
